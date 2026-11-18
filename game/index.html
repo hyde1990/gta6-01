@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sunset Bay — an open-world crime game</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1020; font-family: 'Trebuchet MS', Verdana, sans-serif; }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #hud { position: fixed; inset: 0; pointer-events: none; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,.7); }
+  #hud .panel { position: absolute; background: rgba(8,12,24,.55); border: 1px solid rgba(255,255,255,.18); border-radius: 10px; padding: 8px 12px; }
+  #stats { top: 12px; left: 12px; min-width: 210px; }
+  #stats .row { display: flex; align-items: center; gap: 8px; margin: 2px 0; font-weight: bold; }
+  #cash { color: #7dff9b; font-size: 20px; }
+  #healthbar { width: 150px; height: 12px; background: rgba(0,0,0,.6); border-radius: 6px; overflow: hidden; }
+  #healthfill { height: 100%; width: 100%; background: linear-gradient(90deg,#ff5b5b,#ffb13d); }
+  #stars { font-size: 22px; letter-spacing: 2px; color: #ffd23d; min-height: 26px; }
+  #objective { top: 12px; left: 50%; transform: translateX(-50%); max-width: 46%; text-align: center; font-size: 15px; }
+  #objective b { color: #ffd23d; }
+  #speed { bottom: 14px; right: 14px; font-size: 26px; font-weight: bold; text-align: right; }
+  #speed small { font-size: 12px; color: #cfe3ff; display: block; }
+  #minimap { position: absolute; right: 12px; top: 12px; border: 2px solid rgba(255,255,255,.35); border-radius: 50%; background: rgba(8,12,24,.6); }
+  #hint { bottom: 12px; left: 12px; font-size: 12px; color: #dfe8ff; line-height: 1.5; }
+  #toast { position: absolute; top: 128px; left: 50%; transform: translateX(-50%); max-width: 44%; text-align: center; font-size: 20px; font-weight: bold; color: #ffe27a; opacity: 0; transition: opacity .3s; }
+  #crosshair { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; display: none; }
+  #crosshair:before, #crosshair:after { content: ''; position: absolute; background: #fff; }
+  #crosshair:before { left: 6px; top: 0; width: 2px; height: 14px; }
+  #crosshair:after { left: 0; top: 6px; width: 14px; height: 2px; }
+  .screen { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; background: rgba(5,8,18,.72); color: #fff; text-align: center; z-index: 5; }
+  .screen h1 { font-size: 56px; margin: 0; letter-spacing: 4px; color: #ffb13d; text-shadow: 0 4px 0 #c22e6e, 0 8px 24px rgba(0,0,0,.8); }
+  .screen h2 { font-size: 18px; font-weight: normal; color: #ffd9ec; margin: 8px 0 22px; }
+  .screen p { max-width: 560px; line-height: 1.6; color: #e8efff; }
+  .screen .keys { font-size: 13px; color: #bcd0ff; }
+  .btn { pointer-events: auto; cursor: pointer; margin-top: 18px; padding: 13px 34px; font-size: 18px; font-weight: bold; color: #1a0b2e; background: linear-gradient(180deg,#ffd23d,#ff9a3d); border: none; border-radius: 999px; box-shadow: 0 4px 0 #b25e00, 0 8px 20px rgba(0,0,0,.5); }
+  .btn:hover { filter: brightness(1.08); }
+  .hidden { display: none !important; }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="Sunset Bay: an open-world crime game. Drive, steal cars, dodge the police and finish missions."></canvas>
+<div id="hud" class="hidden">
+  <div id="stats" class="panel">
+    <div class="row"><span id="cash">$0</span><span id="wanted-label"></span></div>
+    <div class="row"><div id="healthbar"><div id="healthfill"></div></div><span id="healthnum">100</span></div>
+    <div id="stars"></div>
+  </div>
+  <div id="objective" class="panel"><b id="obj-title">FREE ROAM</b><div id="obj-text">Explore Sunset Bay. Press E near a car to steal it.</div></div>
+  <canvas id="minimap" width="180" height="180"></canvas>
+  <div id="speed" class="panel hidden"><span id="speednum">0</span><small id="speedlabel">MPH · ENTER to exit</small></div>
+  <div id="hint" class="panel">WASD move / drive · Mouse look · E enter car · Click shoot · Shift run<br>P pause · M mute · R restart mission · F1 save</div>
+  <div id="toast"></div>
+  <div id="crosshair"></div>
+</div>
+
+<div id="screen-title" class="screen">
+  <h1>SUNSET BAY</h1>
+  <h2>An open-world crime story &middot; a city of your own</h2>
+  <p>Leo Cruz is back in Solmar Bay with $40 in his pocket and a debt he cannot
+  pay. Steal cars, outrun the Solmar Bay Police, and run four jobs for Mama Rosa
+  — from a dock pickup to a getaway in a gold coupe — to buy his freedom.</p>
+  <p class="keys">WASD move &amp; drive &middot; Mouse to look &middot; E enter / steal a car &middot;
+  Click to shoot &middot; Shift to run &middot; P pause &middot; M mute</p>
+  <button class="btn" id="btn-start">START THE STORY</button>
+  <button class="btn hidden" id="btn-continue" style="background:linear-gradient(180deg,#9be7ff,#5aa9ff)">CONTINUE SAVED GAME</button>
+  <p class="keys">Headphones on: the engine, the sirens and the city are all synthesized live.</p>
+</div>
+
+<div id="screen-pause" class="screen hidden">
+  <h1>PAUSED</h1>
+  <p>Sunset Bay waits for no one — except right now.</p>
+  <button class="btn" id="btn-resume">RESUME</button>
+  <button class="btn" id="btn-save" style="background:linear-gradient(180deg,#9be7ff,#5aa9ff)">SAVE GAME</button>
+  <button class="btn" id="btn-restart" style="background:linear-gradient(180deg,#ff9db1,#ff5b7a)">RESTART MISSION</button>
+</div>
+
+<div id="screen-over" class="screen hidden">
+  <h1 id="over-title">BUSTED</h1>
+  <p id="over-text">The Solmar Bay Police Department thanks you for your cooperation.</p>
+  <button class="btn" id="btn-retry">TRY AGAIN</button>
+</div>
+
+<p id="status" role="status" aria-live="polite"></p>
+<script src="./vendor/three.min.js"></script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
